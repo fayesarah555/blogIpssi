@@ -25,7 +25,7 @@ app.get('/', (req, res) => {
 app.use((req, res) => {
     return res.status(404).send('Not found')
 })
-
+//tetst commit
 app.listen(process.env.SERVER_PORT, process.env.SERVER_HOST, async (err) => {
     if(err){
         console.log('Error in server setup')
