@@ -4,7 +4,7 @@ const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = require('./Config/db');
 const dotenv = require("dotenv").config();
 const articleRoutes = require('./Routes/routes');
-// const commentRoutes = require('./routes/commentRoutes');
+const commentRoutes = require('./Routes/routes');
 var cors = require('cors')
 
 
@@ -17,27 +17,10 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const PORT = process.env.PORT;
 
 
-// const Article = require('./Models/Article')(sequelize, DataTypes);
-// const Comment = require('./Models/Comment')(sequelize, DataTypes);
-
-
-// Article.hasMany(Comment);
-// Comment.belongsTo(Article);
-
-
-sequelize.sync()
-  .then(() => {
-    console.log('Database synced');
-  })
-  .catch(err => {
-    console.error('Error syncing database:', err);
-  });
-
-
 
 
 app.use('/articles', articleRoutes);
-// app.use('/articles/:articleId/comments', commentRoutes);
+app.use('/articles/:articleId/comments', commentRoutes);
 
 
 app.listen(PORT, () => {

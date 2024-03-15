@@ -16,7 +16,9 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true
   });
 
-
+  Article.associate = models => {
+    Article.hasMany(models.Comment, { onDelete: 'CASCADE' });
+  };
   Article.sync({ alter: true })
     .then(() => {
       console.log('Article model synced with database.');
