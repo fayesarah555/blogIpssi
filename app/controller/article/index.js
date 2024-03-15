@@ -26,21 +26,29 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
     try {
-        if (!req.params.uuid) return res.status(400).json({ msg: 'BAD REQUEST PARAMS IS REQUIRED'})
-        if (!req.body) return res.status(400).json({ msg: 'BAD REQUEST BODY IS REQUIRED'})
-        const { contenu, titre } = req.body
-        const { uuid } = req.params
-        const article = await articleModel.update({
-            contenu,
-            titre
-        }, {where: { id: uuid}})
-        return res.status(200).json({ msg: 'OK', article})
-        // return article.id ? res.status(200).json({ msg: 'OK', article}) : res.status(400).json({ msg: 'BAD REQUEST'})
+        const { uuid } = req.params;
+
+        if (!uuid) {
+            return res.status(400).json({ msg: 'BAD REQUEST PARAMS IS REQUIRED' });
+        }
+
+        const { contenu, titre } = req.body;
+        const [updated] = await articleModel.update(
+            { contenu, titre },
+            { where: { id: uuid } }
+        );
+
+        if (!updated) {
+            return res.status(404).json({ msg: 'Article non trouvé' });
+        }
+        const updatedArticle = await articleModel.findByPk(uuid);
+
+        return res.status(200).json({ msg: 'OK', article: updatedArticle });
     } catch (e) {
-        console.error(e.message)
-        res.status(400).json({ msg: 'BAD REQUEST' + e.message})
+        console.error(e.message);
+        res.status(500).json({ msg: 'Erreur lors de la mise à jour de l\'article' });
     }
-}
+};
 
 exports.delete = async (req, res) => {
     if (!req.params.uuid) return res.status(400).json({ msg: 'BAD REQUEST PARAMS IS REQUIRED'})

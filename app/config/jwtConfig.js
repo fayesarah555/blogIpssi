@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/user')
+const UserModel = require('../models/user');
 const ArticleModel = require('../models/article');
 const CommentaireModel = require('../models/commentaire');
 
@@ -7,88 +7,118 @@ const jwtSign = async (payload) => {
     try {
         return jwt.sign(payload, process.env.SECRET_PASS, {
             expiresIn: '1d'
-        })
+        });
     } catch (e) {
-        return e.message
+        return e.message;
     }
-}
+};
+
+const recupToken = (req) => {
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        return token;
+    }
+    return null;
+};
 
 const jwtVerify = async (token) => {
     try {
-        // décoder le token et obtenir le payload
-        const decoded =  jwt.verify(token, process.env.SECRET_PASS);
-        // vérifie la date d'expiration
+        const decoded = jwt.verify(token, process.env.SECRET_PASS);
         if (decoded.exp < Date.now() / 1000) {
-            return false // token expiré
+            return false; // token expiré
         }
-        const user = await UserModel.findByPk(decoded.id)
-        if (user.dataValues.token !== token) return false
-        // return !!user // token valide
-        return true
+        const user = await UserModel.findByPk(decoded.id);
+        if (!user || user.token !== token) {
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.log(e.message);
+        return false;
     }
-    catch (e) {
-        console.log(e.message)
-        return false
-    }
-}
+};
 
 const checkIsAuth = async (req, res, next) => {
     try {
-        if(req.originalUrl.includes(process.env.API_PATH)){
-            const authHeader = req.headers['authorization']
-            const token = authHeader.split(" ")[1]
-            const isValid = await jwtVerify(token)
-            if (!isValid){
-                return res.status(401).json({msg: 'Unauthorized'})
+        if (req.originalUrl.includes(process.env.API_PATH)) {
+            const authHeader = req.headers['authorization'];
+            if (!authHeader) {
+                return res.status(401).json({ msg: 'Authorization header missing' });
             }
-            next()
+            const token = authHeader.split(" ")[1];
+            const decoded = jwt.verify(token, process.env.SECRET_PASS);
+            
+            req.user = {
+                id: decoded.id,
+                email: decoded.email,
+                roleId: decoded.roleId
+            };
+            
+            next();
         } else {
-            next()
+            next();
         }
     } catch (e) {
-        console.log(e.message)
-        return res.status(400).json({msg: 'BAD REQUEST'})
+        console.log(e.message);
+        return res.status(400).json({ msg: 'BAD REQUEST' });
     }
-}
+};
+
 const checkRole = (roleId) => async (req, res, next) => {
     try {
-        if (!req.user) {
-            return res.status(401).json({ msg: 'Unauthorized: User not authenticated' });
-        }
-        if (req.user.roleId !== roleId) {
-            return res.status(403).json({ msg: 'Forbidden: Insufficient permissions' });
-        }
-        next();
+        // Vérifie d'abord l'authentification de l'utilisateur
+        await checkIsAuth(req, res, async () => {
+            // Si l'utilisateur est authentifié, continuez à vérifier le rôle
+            if (req.user.roleId !== roleId) {
+                console.log("Rôle non autorisé");
+                return res.status(403).json({ msg: 'Vous n\'avez pas les permissions' });
+            }
+            next();
+        });
     } catch (error) {
-        console.error('Error checking role:', error.message);
-        return res.status(500).json({ msg: 'Internal Server Error' });
+        console.error('Erreur lors de la vérification du rôle:', error.message);
+        return res.status(500).json({ msg: 'Erreur Interne du Serveur' });
     }
 };
+
 const checkPermission = (model) => async (req, res, next) => {
-    const { userId } = req.user; 
-    const { urlId } = req.params;
+    let urlId;
+    const token = recupToken(req);
 
     try {
-        const contenu = await model.findByPk(urlId);
+        // Vérifie d'abord l'authentification de l'utilisateur
+        await checkIsAuth(req, res, async () => {
+            // Extraire l'ID de l'URL
+            urlId = req.params.urlId;
+            console.log("urlId extrait :", urlId);
 
-        if (!contenu) {
-            return res.status(404).json({ msg: 'contenu not found' });
-        }
+            if (!urlId) {
+                console.log("ID de l'URL manquant");
+                return res.status(400).json({ msg: 'ID de l\'URL manquant' });
+            }
 
-        if (contenu.userId !== userId) {
-            return res.status(403).json({ msg: 'Forbidden: Vous n\'etes pas l\'auteur de ce contenu' });
-        }
+            const decoded = jwt.verify(token, process.env.SECRET_PASS);
+            const contenu = await model.findByPk(urlId);
 
-        next();
+            console.log("urlId :", urlId);
+            console.log("Contenu trouvé :", contenu);
+
+            if (!contenu) {
+                return res.status(404).json({ msg: 'Contenu non trouvé' });
+            }
+
+            next();
+        });
     } catch (error) {
-        console.error('Error checking contenu ownership:', error.message);
-        return res.status(500).json({ msg: 'Internal Server Error' });
+        console.error('Erreur lors de la vérification:', error.message);
+        return res.status(500).json({ msg: 'Vous n\'avez pas la permission' });
     }
 };
+
 
 const checkArticlePermission = checkPermission(ArticleModel);
 const checkCommentairePermission = checkPermission(CommentaireModel);
-
 
 module.exports = {
     jwtSign,
@@ -98,4 +128,4 @@ module.exports = {
     checkPermission,
     checkCommentairePermission,
     checkArticlePermission
-}
+};

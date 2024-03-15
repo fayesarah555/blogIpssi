@@ -1,14 +1,14 @@
-const articleRoute = require('express').Router(),
-    articleController = require('../../controller/article');
-const {checkIsAuth} = require("../../config/jwtConfig");
-const {checkRole} = require("../../config/jwtConfig");
-    
+const express = require('express');
+const articleRoute = express.Router();
+const articleController = require('../../controller/article');
+const { checkIsAuth, checkArticlePermission } = require("../../config/jwtConfig");
 
 module.exports = (app) => {
-    articleRoute.get('/articles',articleController.getAll)
-    articleRoute.post('/article',checkIsAuth,checkRole('638665da-7da7-43a3-ae14-bc5f3a1a01a0'), articleController.create)
-    articleRoute.put('/article/:uuid',checkIsAuth, articleController.update)
-    articleRoute.delete('/article/:uuid',checkIsAuth,articleController.delete)
-    articleRoute.get('/article/:uuid', articleController.getById)
-    app.use('/api/v1', articleRoute)
-}
+    articleRoute.get('/articles', checkIsAuth, articleController.getAll);
+    articleRoute.post('/article', checkIsAuth, articleController.create);
+    articleRoute.get('/article/:uuid', articleController.getById);
+    articleRoute.put('/article/:uuid',checkArticlePermission, articleController.update);
+    articleRoute.delete('/article/:uuid',checkArticlePermission, articleController.delete);
+
+    app.use('/api/v1', articleRoute);
+};
